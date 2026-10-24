@@ -1,4 +1,4 @@
-# Rolezeiros — Hackathon PMMG 2026
+# Rolezeiros — HackatOhm PMMG 2026
 
 **Policiamento preventivo orientado por dados** · 39ª CIA PM / 18º BPM
 
