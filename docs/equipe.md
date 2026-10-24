@@ -8,15 +8,15 @@ que sobe no repositório.
 
 | Pessoa | Frente |
 |---|---|
-| Henrique | Frontend (Vue + Leaflet), repositório, integração |
-| Guilherme | Backend (Python, Pandas, GeoPandas): malha, classificação, distribuição, cartões |
-| Thaís | Pesquisa acadêmica, perguntas à organização, documentação, apresentação |
-| Vinicius | _A definir conforme o perfil_: dados/algoritmo **ou** pesquisa de OR + QA |
-| Artur | _A definir conforme o perfil_: dados/algoritmo **ou** documentação + QA |
+| Henrique Bispo dos Santos | Frontend (Vue + Leaflet), repositório, integração |
+| Guilherme Augusto Reis Correa | Backend (Python, Pandas, GeoPandas): malha, classificação, distribuição, cartões |
+| Thaís Lorrane Oliveira | Pesquisa acadêmica, perguntas à organização, documentação, apresentação |
+| Vinícius Januário Luciano Lopes | _A definir conforme o perfil_: dados/algoritmo **ou** pesquisa de OR + QA |
+| Arthur Nichollls Mendes | _A definir conforme o perfil_: dados/algoritmo **ou** documentação + QA |
 
 ## Tarefas
 
-### 1. Pesquisa acadêmica (Thaís; Vinicius/Artur podem ajudar)
+### 1. Pesquisa acadêmica (Thaís; Vinícius/Arthur podem ajudar)
 Objetivo: embasar cada decisão do algoritmo com evidência, para usar na apresentação e na documentação.
 Para cada estudo, um fichamento curto em `research/` usando o [modelo](../research/_modelo.md).
 
@@ -49,19 +49,19 @@ Entregável: 6 a 10 fichamentos e um resumo de uma página, "o que a literatura 
 Pensar como o policial que recebe o cartão: o que precisa estar nele, em que ordem, o que é
 supérfluo. Um rascunho em papel (foto) ou no Figma já basta; o Henrique transforma em tela e PDF.
 
-### 4. Análise exploratória dos dados (Vinicius/Artur, se programarem)
+### 4. Análise exploratória dos dados (Vinícius/Arthur, se programarem)
 Notebook em `notebooks/`, importando os módulos do `backend/`:
 - distribuição por hora, dia da semana e mês;
 - ranking das 24 faixas pela incidência ponderada, que define as Classes 1, 2 e 3;
 - tratamento dos pontos duplicados, da hora cheia e das ocorrências fora do limite;
 - gráficos que entrem direto na apresentação.
 
-### 5. Métricas e baseline (Vinicius/Artur, se programarem)
+### 5. Métricas e baseline (Vinícius/Arthur, se programarem)
 - % de área coberta e % do risco ponderado coberto, com e sem viaturas empenhadas.
 - Comparar nossa estratégia com uma ingênua (todas as viaturas nos N hexágonos mais quentes),
   para mostrar numericamente o equilíbrio entre prioridade e cobertura.
 
-### 6. Validador das regras do Cartão-Programa (Vinicius/Artur, se programarem)
+### 6. Validador das regras do Cartão-Programa (Vinícius/Arthur, se programarem)
 Testes automáticos (pytest) sobre a saída do `POST /distribuicao`:
 - 24 faixas por cartão: 8 da Classe 1, 8 da Classe 2 e 8 da Classe 3;
 - a mesma quadrícula de ponto-base nunca aparece em faixas consecutivas (incluindo 23h → 0h);

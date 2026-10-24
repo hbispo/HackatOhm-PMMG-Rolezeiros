@@ -6,13 +6,11 @@
 
 | Integrante | Papel |
 |---|---|
-| Henrique _(sobrenome)_ | Frontend, gestão do repositório |
-| Guilherme _(sobrenome)_ | Backend (Python, Pandas, GeoPandas) |
-| Thaís _(sobrenome)_ | Pesquisa, documentação, apresentação |
-| Vinicius _(sobrenome)_ | Dados e algoritmo |
-| Artur _(sobrenome)_ | Dados e algoritmo |
-
-> ⚠️ Completar com os nomes completos (exigência do edital, item 2a).
+| Henrique Bispo dos Santos | Frontend, gestão do repositório |
+| Guilherme Augusto Reis Correa | Backend (Python, Pandas, GeoPandas) |
+| Thaís Lorrane Oliveira | Pesquisa, documentação, apresentação |
+| Vinícius Januário Luciano Lopes | Dados e algoritmo |
+| Arthur Nichollls Mendes | Dados e algoritmo |
 
 ## A solução
 
