@@ -1,0 +1,20 @@
+# Materiais originais do desafio (PDF/PPTX/DOCX grandes): ficam fora do repo.
+# Os dados usados pelo código estão em /data.
+pmmg2026/
+.DS_Store
+
+# Node
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/

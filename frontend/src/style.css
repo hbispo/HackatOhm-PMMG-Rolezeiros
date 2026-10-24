@@ -1,0 +1,31 @@
+:root {
+  --dourado: #a08c5f;
+  --dourado-escuro: #7a6a45;
+  --fundo: #f4f1ea;
+  --superficie: #fffdf8;
+  --borda: #e2dccf;
+  --texto: #1c1c1c;
+  --texto-suave: #6b665c;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--texto);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fundo); }
+
+button, select {
+  font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 5px;
+  border: 1px solid var(--borda); background: #fff; cursor: pointer;
+}
+button:hover { border-color: var(--dourado); }
+
+.marcador-viatura span {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  color: #fff; font-weight: 700; font-size: 12px; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+
+@media print {
+  body { background: #fff; }
+  button { display: none; }
+}
