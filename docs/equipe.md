@@ -12,7 +12,7 @@ que sobe no repositório.
 | Guilherme Augusto Reis Correa | Backend (Python, Pandas, GeoPandas): malha, classificação, distribuição, cartões |
 | Thaís Lorrane Oliveira | Pesquisa acadêmica, perguntas à organização, documentação, apresentação |
 | Vinícius Januário Luciano Lopes | _A definir conforme o perfil_: dados/algoritmo **ou** pesquisa de OR + QA |
-| Arthur Nichollls Mendes | _A definir conforme o perfil_: dados/algoritmo **ou** documentação + QA |
+| Arthur Nicholls Mendes | _A definir conforme o perfil_: dados/algoritmo **ou** documentação + QA |
 
 ## Tarefas
 

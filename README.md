@@ -10,7 +10,7 @@
 | Guilherme Augusto Reis Correa | Backend (Python, Pandas, GeoPandas) |
 | Thaís Lorrane Oliveira | Pesquisa, documentação, apresentação |
 | Vinícius Januário Luciano Lopes | Dados e algoritmo |
-| Arthur Nichollls Mendes | Dados e algoritmo |
+| Arthur Nicholls Mendes | Dados e algoritmo |
 
 ## A solução
 
