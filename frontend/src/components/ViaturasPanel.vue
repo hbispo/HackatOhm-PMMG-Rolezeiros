@@ -5,42 +5,34 @@ import { corViatura } from '../cores'
 
 const plano = usePlano()
 
-const metricas = computed(() => plano.distribuicao?.metricas)
-const antes = computed(() => plano.anterior?.metricas)
-
-function delta(atual?: number, anterior?: number): string {
-  if (atual === undefined || anterior === undefined) return ''
-  const d = Math.round((atual - anterior) * 10) / 10
-  return d === 0 ? '' : `${d > 0 ? '+' : ''}${d} p.p.`
-}
+const mudanca = computed(() => plano.estado?.mudanca)
+const cargaPorViatura = computed(() => new Map((plano.estado?.carga ?? []).map((c) => [c.viatura, c])))
+const problemas = computed(() => plano.estado?.problemas ?? [])
 </script>
 
 <template>
-  <section class="painel">
-    <h2>Cenário</h2>
+  <section class="painel" :class="{ ocupado: plano.ocupado }">
+    <h2>Cenário <small v-if="plano.estado">atual: {{ plano.estado.cenario }}</small></h2>
     <div class="cenarios">
-      <button @click="plano.aplicarCenario(1)">1 · Todas</button>
-      <button @click="plano.aplicarCenario(2)">2 · Uma empenhada</button>
-      <button @click="plano.aplicarCenario(3)">3 · Várias</button>
+      <button :disabled="plano.ocupado" @click="plano.aplicarCenario(1)">1 · Todas</button>
+      <button :disabled="plano.ocupado" @click="plano.aplicarCenario(2)">2 · Uma empenhada</button>
+      <button :disabled="plano.ocupado" @click="plano.aplicarCenario(3)">3 · Duas</button>
     </div>
 
-    <h2>Cobertura</h2>
-    <div v-if="metricas" class="metricas">
-      <div>
-        <strong>{{ metricas.cobertura_risco_pct }}%</strong>
-        <span>do risco ponderado</span>
-        <em :class="{ ruim: (metricas.cobertura_risco_pct ?? 0) < (antes?.cobertura_risco_pct ?? 0) }">
-          {{ delta(metricas.cobertura_risco_pct, antes?.cobertura_risco_pct) }}
-        </em>
+    <template v-if="mudanca">
+      <h2>Última mudança</h2>
+      <div class="mudanca">
+        <p>
+          <b>{{ mudanca.viaturas.join(', ') }}</b>
+          {{ mudanca.acao === 'empenhar' ? (mudanca.viaturas.length > 1 ? 'empenhadas' : 'empenhada') : 'liberada' }}
+        </p>
+        <div v-if="mudanca.acao === 'empenhar'" class="numeros">
+          <div><strong>{{ mudanca.hex_descobertos.length }}</strong><span>hexágonos descobertos</span></div>
+          <div><strong>{{ mudanca.pct_pontos_descobertos }}%</strong><span>dos pontos estavam lá</span></div>
+        </div>
+        <p class="nota">{{ mudanca.hex_mudaram.length }} hexágonos mudaram de viatura (contorno vermelho no mapa)</p>
       </div>
-      <div>
-        <strong>{{ metricas.cobertura_area_pct }}%</strong>
-        <span>da área</span>
-        <em :class="{ ruim: (metricas.cobertura_area_pct ?? 0) < (antes?.cobertura_area_pct ?? 0) }">
-          {{ delta(metricas.cobertura_area_pct, antes?.cobertura_area_pct) }}
-        </em>
-      </div>
-    </div>
+    </template>
 
     <h2>Viaturas <small>{{ plano.disponiveis.length }}/{{ plano.viaturas.length }} disponíveis</small></h2>
     <ul class="viaturas">
@@ -52,10 +44,16 @@ function delta(atual?: number, anterior?: number): string {
       >
         <i :style="{ background: corViatura(v.id, plano.viaturas) }" />
         <div>
-          <b>{{ v.nome }}</b>
-          <small>{{ v.tipo === 'atendimento' ? 'Atendimento' : 'Preventiva' }}</small>
+          <b>{{ v.id }}</b>
+          <small>
+            {{ v.tipo === 'atendimento' ? 'Atendimento' : 'Preventiva' }}
+            <template v-if="cargaPorViatura.get(v.id)">
+              · {{ cargaPorViatura.get(v.id)!.hexagonos }} hex · {{ cargaPorViatura.get(v.id)!.pct_pontos }}% dos pontos
+              · alcance {{ cargaPorViatura.get(v.id)!.dist_max_km }} km
+            </template>
+          </small>
         </div>
-        <button @click.stop="plano.alternarDisponibilidade(v.id)">
+        <button :disabled="plano.ocupado" @click.stop="plano.alternarDisponibilidade(v.id)">
           {{ v.disponivel ? 'Empenhar' : 'Liberar' }}
         </button>
       </li>
@@ -65,23 +63,31 @@ function delta(atual?: number, anterior?: number): string {
     <select v-model="plano.horaSelecionada">
       <option :value="null">Todas</option>
       <option v-for="f in plano.faixas" :key="f.hora" :value="f.hora">
-        {{ String(f.hora).padStart(2, '0') }}h · Classe {{ f.classe }}
+        {{ String(f.hora).padStart(2, '0') }}h · Classe {{ f.classe }} · {{ f.pontos }} pontos
       </option>
     </select>
+
+    <h2>Regras do Cartão-Programa</h2>
+    <p v-if="!problemas.length" class="ok">✓ Todas as regras do edital cumpridas</p>
+    <ul v-else class="problemas">
+      <li v-for="p in problemas" :key="p">{{ p }}</li>
+    </ul>
   </section>
 </template>
 
 <style scoped>
 .painel { padding: 12px 16px; overflow-y: auto; }
+.painel.ocupado { cursor: progress; }
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dourado-escuro); margin: 18px 0 8px; }
 h2 small { text-transform: none; letter-spacing: 0; color: var(--texto-suave); font-weight: normal; }
 .cenarios { display: flex; gap: 6px; flex-wrap: wrap; }
-.metricas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.metricas div { background: var(--fundo); padding: 8px; border-radius: 6px; display: grid; }
-.metricas strong { font-size: 22px; }
-.metricas span { font-size: 12px; color: var(--texto-suave); }
-.metricas em { font-size: 12px; font-style: normal; color: #2a7a2a; min-height: 1em; }
-.metricas em.ruim { color: #d00000; }
+.mudanca { background: var(--fundo); border-left: 3px solid #d00000; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+.mudanca p { margin: 0 0 6px; }
+.mudanca .nota { margin: 6px 0 0; color: var(--texto-suave); font-size: 12px; }
+.numeros { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.numeros div { display: grid; }
+.numeros strong { font-size: 20px; }
+.numeros span { font-size: 12px; color: var(--texto-suave); }
 .viaturas { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .viaturas li {
   display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center;
@@ -93,4 +99,7 @@ h2 small { text-transform: none; letter-spacing: 0; color: var(--texto-suave); f
 .viaturas i { width: 14px; height: 14px; border-radius: 50%; }
 .viaturas small { display: block; color: var(--texto-suave); font-size: 12px; }
 select { width: 100%; }
+.ok { color: #2a7a2a; font-size: 13px; margin: 0; }
+.problemas { color: #d00000; font-size: 12px; padding-left: 18px; margin: 0; }
+button:disabled { opacity: .5; cursor: progress; }
 </style>

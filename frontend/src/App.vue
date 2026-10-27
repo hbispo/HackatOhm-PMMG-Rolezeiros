@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { usePlano } from './stores/plano'
-import { usandoMock } from './api'
 import MapView from './components/MapView.vue'
 import ViaturasPanel from './components/ViaturasPanel.vue'
 import CartoesPrograma from './components/CartoesPrograma.vue'
@@ -13,9 +12,8 @@ onMounted(plano.carregar)
 <template>
   <header class="topo">
     <h1>Policiamento Preventivo <span>· 39ª CIA PM</span></h1>
-    <span v-if="usandoMock" class="selo">dados mock</span>
   </header>
-  <p v-if="plano.erro" class="erro">Erro ao carregar: {{ plano.erro }}</p>
+  <p v-if="plano.erro" class="erro">{{ plano.erro }}</p>
   <main class="layout">
     <ViaturasPanel class="lateral" />
     <MapView class="centro" />
@@ -30,7 +28,6 @@ onMounted(plano.carregar)
 }
 h1 { font-size: 17px; margin: 0; letter-spacing: .02em; }
 h1 span { color: var(--dourado); font-weight: 400; }
-.selo { font-size: 11px; background: var(--dourado); color: #1c1c1c; padding: 2px 8px; border-radius: 10px; }
 .erro { background: #ffe0e0; color: #900; margin: 0; padding: 8px 16px; }
 .layout { display: grid; grid-template-columns: 300px 1fr 400px; height: calc(100vh - 51px); }
 .lateral { background: var(--superficie); border-right: 1px solid var(--borda); }

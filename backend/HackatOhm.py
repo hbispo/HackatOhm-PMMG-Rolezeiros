@@ -150,8 +150,10 @@ COL_NATUREZA = "natureza"
 FORMATO_DATAHORA = "%d/%m/%Y %H:%M:%S"   # ex: 31/12/2025 20:07:13
 
 PASTA = Path(__file__).parent
-ARQUIVO = PASTA / "ocorrencias.txt"    # json das ocorrências (a extensão é .txt mesmo)
-ARQUIVO_AREA = PASTA / "39_cia.geojson"  # contorno da área atendida (39ª CIA)
+PASTA_DADOS = PASTA.parent / "data"     # dados do desafio ficam em /data na raiz do repositório
+PASTA_SAIDA = PASTA / "saida"           # cartões gerados pelo script (fora do git)
+ARQUIVO = PASTA_DADOS / "ocorrencias.txt"    # json das ocorrências (a extensão é .txt mesmo)
+ARQUIVO_AREA = PASTA_DADOS / "39_cia.geojson"  # contorno da área atendida (39ª CIA)
 
 
 # ---------------------------------------------------------------
@@ -829,7 +831,8 @@ def montar_cartoes_do_cenario(nome, hexagonos, viaturas, faixas, anteriores=None
     if anteriores:
         comparar_cartoes(anteriores, cartoes)
 
-    salvar_cartoes(cartoes, PASTA / f"cartoes_{nome}.json")
+    PASTA_SAIDA.mkdir(exist_ok=True)
+    salvar_cartoes(cartoes, PASTA_SAIDA / f"cartoes_{nome}.json")
     return cartoes
 
 

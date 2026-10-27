@@ -18,3 +18,6 @@ venv/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Saída do script do backend
+backend/saida/

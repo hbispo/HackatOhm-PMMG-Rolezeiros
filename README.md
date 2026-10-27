@@ -30,7 +30,7 @@ estratégia de patrulhamento preventivo que se adapta à disponibilidade das via
 
 ```
 frontend/   Vue 3 + Vite + TypeScript + Leaflet (mapa, painel de viaturas, cartões)
-backend/    Python + Pandas + GeoPandas (+ FastAPI): malha, classificação, distribuição
+backend/    HackatOhm.py (motor: malha, classificação, distribuição, cartões) + api.py (FastAPI)
 data/       ocorrencias.txt (1.605 ocorrências) e 39_cia.geojson (limite da CIA)
 docs/       contrato da API, metodologia, arquitetura, limitações, evolução
 research/   fichamentos da pesquisa acadêmica
@@ -39,17 +39,24 @@ notebooks/  análise exploratória
 
 ## Como executar
 
-### Frontend
+Precisa de Python 3.9+ e Node 20+. Rode os comandos a partir da raiz do repositório.
+
+### 1. Backend (porta 8000)
+```bash
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements.txt
+backend/.venv/bin/uvicorn api:app --app-dir backend --reload --port 8000
+```
+Documentação interativa da API: http://localhost:8000/docs.
+Para ver os 3 cenários só no terminal: `backend/.venv/bin/python backend/HackatOhm.py`.
+
+### 2. Frontend (porta 5173)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Por padrão o front usa os **mocks** em `frontend/public/mock/`. Para apontar para o backend:
-`VITE_API_URL=http://localhost:8000 npm run dev`.
-
-### Backend
-_A definir pelo Guilherme._
+O Vite redireciona `/api` para o backend na porta 8000, então os dois precisam estar rodando.
 
 ## Tecnologias
 Somente código aberto: Vue, Vite, Leaflet, OpenStreetMap, Python, Pandas, GeoPandas, Shapely, FastAPI.

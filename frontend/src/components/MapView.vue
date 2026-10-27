@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import { usePlano } from '../stores/plano'
-import { COR_PRIORIDADE, ROTULO_PRIORIDADE, corViatura } from '../cores'
+import { COR_PRIORIDADE, ROTULO_MODO, ROTULO_PRIORIDADE, corViatura } from '../cores'
 import type { HexFeature, Prioridade } from '../types'
 
 const plano = usePlano()
@@ -14,15 +14,33 @@ let mapa: L.Map
 const renderer = L.canvas({ padding: 0.5 })
 const camadaTerritorio = L.layerGroup()
 const camadaHex = L.layerGroup()
+const camadaPatrulha = L.layerGroup()
 const camadaOcorrencias = L.layerGroup()
 const camadaViaturas = L.layerGroup()
 
-function donoDoHex(): Map<string, string> {
-  const dono = new Map<string, string>()
-  for (const [vid, ids] of Object.entries(plano.distribuicao?.atribuicoes ?? {})) {
+const hexPorId = computed(() => new Map(plano.hexagonos?.features.map((h) => [h.properties.hex_id, h]) ?? []))
+
+const donoDoHex = computed(() => {
+  const dono = new Map<number, string>()
+  for (const [vid, ids] of Object.entries(plano.estado?.atribuicoes ?? {})) {
     for (const id of ids) dono.set(id, vid)
   }
   return dono
+})
+
+// Cartões cujas faixas aparecem no mapa: o da viatura selecionada, ou todos.
+const cartoesVisiveis = computed(() =>
+  plano.viaturaSelecionada
+    ? plano.cartoes.filter((c) => c.viatura === plano.viaturaSelecionada)
+    : plano.cartoes,
+)
+
+function latLngs(h: HexFeature): [number, number][] {
+  return h.geometry.coordinates[0].map(([lon, lat]) => [lat, lon])
+}
+
+function centro(h: HexFeature): L.LatLng {
+  return L.latLngBounds(latLngs(h)).getCenter()
 }
 
 function desenharTerritorio() {
@@ -37,41 +55,58 @@ function desenharTerritorio() {
 function desenharHexagonos() {
   camadaHex.clearLayers()
   if (!plano.hexagonos) return
-  const dono = donoDoHex()
-  const descobertos = new Set(plano.distribuicao?.metricas.hex_descobertos ?? [])
-  // Hexágonos que estavam cobertos antes do último empenho e agora não estão.
-  const antes = new Set(plano.anterior?.metricas.hex_descobertos ?? [])
-  const afetados = plano.anterior ? new Set([...descobertos].filter((id) => !antes.has(id))) : new Set<string>()
+  const dono = donoDoHex.value
+  const mudaram = new Set(plano.estado?.mudanca?.hex_mudaram ?? [])
+  const hora = plano.horaSelecionada
 
   L.geoJSON(plano.hexagonos, {
     style: (f) => {
       const p = (f as HexFeature).properties
-      const vid = dono.get(p.id)
-      const selecionado = plano.viaturaSelecionada && vid === plano.viaturaSelecionada
-      const base = colorirPor.value === 'viatura' && vid
-        ? corViatura(vid, plano.viaturas)
-        : COR_PRIORIDADE[p.prioridade]
+      const vid = dono.get(p.hex_id)
+      const daSelecionada = plano.viaturaSelecionada !== null && vid === plano.viaturaSelecionada
+      const apagado = (plano.viaturaSelecionada !== null && !daSelecionada) || hora !== null
+      const porViatura = colorirPor.value === 'viatura' && vid
       return {
         renderer,
-        color: afetados.has(p.id) ? '#d00000' : selecionado ? '#000' : '#ffffff',
-        weight: afetados.has(p.id) ? 2 : selecionado ? 1.5 : 0.5,
-        fillColor: base,
-        fillOpacity: plano.viaturaSelecionada && !selecionado ? 0.15 : p.score > 0 || colorirPor.value === 'viatura' ? 0.6 : 0.2,
+        color: mudaram.has(p.hex_id) ? '#d00000' : '#ffffff',
+        weight: mudaram.has(p.hex_id) ? 1.5 : 0.5,
+        fillColor: porViatura ? corViatura(vid, plano.viaturas) : COR_PRIORIDADE[p.prioridade],
+        fillOpacity: apagado ? 0.2 : p.score_total > 0 || porViatura ? 0.6 : 0.25,
       }
     },
     onEachFeature: (f, layer) => {
       const p = (f as HexFeature).properties
-      const vid = dono.get(p.id)
+      const vid = dono.get(p.hex_id)
       const naturezas = Object.entries(p.por_natureza).filter(([, n]) => n > 0).map(([k, n]) => `${k}: ${n}`).join(' · ')
+      const naHora = hora !== null ? `<br>Pontos às ${String(hora).padStart(2, '0')}h: ${p.por_hora[hora]}` : ''
       layer.bindTooltip(
-        `<b>${p.id}</b> · ${ROTULO_PRIORIDADE[p.prioridade]}<br>` +
-        `Score ${p.score} · ${p.total} ocorrências${naturezas ? `<br>${naturezas}` : ''}` +
-        `<br>Viatura: ${vid ?? '—'}${descobertos.has(p.id) ? ' · <span style="color:#d00000">descoberto</span>' : ''}`,
+        `<b>Hexágono ${p.hex_id}</b> · ${ROTULO_PRIORIDADE[p.prioridade]}<br>` +
+        `Pontos ${p.score_total} · ${p.total} ocorrências${naturezas ? `<br>${naturezas}` : ''}${naHora}` +
+        `<br>Viatura: ${vid ?? '—'}${mudaram.has(p.hex_id) ? ' · <span style="color:#d00000">mudou de viatura</span>' : ''}`,
         { sticky: true },
       )
       layer.on('click', () => { if (vid) plano.viaturaSelecionada = plano.viaturaSelecionada === vid ? null : vid })
     },
   }).addTo(camadaHex)
+}
+
+// Na faixa selecionada: a área de patrulha de cada viatura e as quadrículas de destaque.
+function desenharPatrulha() {
+  camadaPatrulha.clearLayers()
+  if (plano.horaSelecionada === null) return
+  for (const c of cartoesVisiveis.value) {
+    const faixa = c.faixas.find((f) => f.hora === plano.horaSelecionada)
+    if (!faixa) continue
+    const cor = corViatura(c.viatura, plano.viaturas)
+    for (const id of faixa.hexagonos_patrulha) {
+      const h = hexPorId.value.get(id)
+      if (h) L.polygon(latLngs(h), { renderer, color: cor, weight: 0.5, fillColor: cor, fillOpacity: 0.35, interactive: false }).addTo(camadaPatrulha)
+    }
+    for (const id of faixa.hexagonos_destaque) {
+      const h = hexPorId.value.get(id)
+      if (h) L.polygon(latLngs(h), { renderer, color: '#000', weight: 2.5, fillColor: cor, fillOpacity: 0.9, interactive: false }).addTo(camadaPatrulha)
+    }
+  }
 }
 
 function desenharOcorrencias() {
@@ -88,36 +123,29 @@ function desenharOcorrencias() {
 
 function desenharViaturas() {
   camadaViaturas.clearLayers()
-  if (!plano.distribuicao || !plano.hexagonos) return
-  const porId = new Map(plano.hexagonos.features.map((h) => [h.properties.id, h]))
-  for (const c of plano.distribuicao.cartoes) {
-    // Posição: ponto-base da hora selecionada, ou da faixa de maior incidência.
-    const faixa = plano.horaSelecionada !== null
-      ? c.faixas.find((f) => f.hora === plano.horaSelecionada)
-      : c.faixas.find((f) => f.modo === 'ponto_base')
-    const hex = faixa?.hex_ponto_base ? porId.get(faixa.hex_ponto_base) : undefined
+  for (const c of plano.cartoes) {
+    // Posição: quadrícula de destaque da faixa selecionada, ou o hexágono-base.
+    const faixa = plano.horaSelecionada !== null ? c.faixas.find((f) => f.hora === plano.horaSelecionada) : undefined
+    const hex = hexPorId.value.get(faixa?.hexagonos_destaque[0] ?? c.hex_base)
     if (!hex) continue
-    const centro = L.polygon(hex.geometry.coordinates[0].map(([lon, lat]) => [lat, lon] as [number, number])).getBounds().getCenter()
-    const cor = corViatura(c.viatura_id, plano.viaturas)
-    if (faixa) {
-      L.circle(centro, { radius: faixa.raio_m, color: cor, weight: 1.5, dashArray: '4 4', fill: false, interactive: false })
-        .addTo(camadaViaturas)
-    }
-    L.marker(centro, {
+    const cor = corViatura(c.viatura, plano.viaturas)
+    L.marker(centro(hex), {
       icon: L.divIcon({
         className: 'marcador-viatura',
-        html: `<span style="background:${cor}">${c.viatura_id.replace('VTR-', '')}</span>`,
+        html: `<span style="background:${cor}">${c.viatura.replace('VTR-', '')}</span>`,
         iconSize: [26, 26],
       }),
+      zIndexOffset: 1000,
     })
-      .bindTooltip(`${c.viatura_id} · ${faixa?.modo.replace('_', ' ') ?? ''}`)
-      .on('click', () => { plano.viaturaSelecionada = c.viatura_id })
+      .bindTooltip(`${c.viatura}${faixa ? ` · ${ROTULO_MODO[faixa.modo]}` : ' · hexágono-base'}`)
+      .on('click', () => { plano.viaturaSelecionada = plano.viaturaSelecionada === c.viatura ? null : c.viatura })
       .addTo(camadaViaturas)
   }
 }
 
 function desenharTudo() {
   desenharHexagonos()
+  desenharPatrulha()
   desenharOcorrencias()
   desenharViaturas()
 }
@@ -128,19 +156,23 @@ onMounted(() => {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap',
   }).addTo(mapa)
-  camadaTerritorio.addTo(mapa)
-  camadaHex.addTo(mapa)
-  camadaOcorrencias.addTo(mapa)
-  camadaViaturas.addTo(mapa)
+  for (const c of [camadaTerritorio, camadaHex, camadaPatrulha, camadaOcorrencias, camadaViaturas]) c.addTo(mapa)
   desenharTerritorio()
   desenharTudo()
+  // O Leaflet não percebe sozinho quando o contêiner muda de tamanho.
+  observador = new ResizeObserver(() => mapa.invalidateSize())
+  observador.observe(el.value!)
 })
 
-onBeforeUnmount(() => mapa?.remove())
+let observador: ResizeObserver | undefined
+onBeforeUnmount(() => {
+  observador?.disconnect()
+  mapa?.remove()
+})
 
 watch(() => plano.territorio, desenharTerritorio)
 watch(
-  () => [plano.hexagonos, plano.distribuicao, plano.viaturaSelecionada, plano.horaSelecionada, colorirPor.value, mostrarOcorrencias.value],
+  () => [plano.hexagonos, plano.estado, plano.viaturaSelecionada, plano.horaSelecionada, colorirPor.value, mostrarOcorrencias.value],
   desenharTudo,
 )
 </script>
@@ -162,20 +194,27 @@ watch(
       <div v-for="(cor, p) in COR_PRIORIDADE" :key="p">
         <i :style="{ background: cor }" /> {{ ROTULO_PRIORIDADE[p as Prioridade] }}
       </div>
-      <div v-if="plano.anterior"><i class="afetado" /> Descoberto após empenho</div>
+      <div v-if="plano.estado?.mudanca"><i class="mudou" /> Mudou de viatura</div>
+      <div v-if="plano.horaSelecionada !== null"><i class="destaque" /> Quadrícula de destaque</div>
     </div>
+    <p v-if="plano.horaSelecionada !== null" class="aviso-hora">
+      Faixa {{ String(plano.horaSelecionada).padStart(2, '0') }}h: áreas de patrulha
+      {{ plano.viaturaSelecionada ? `da ${plano.viaturaSelecionada}` : 'de todas as viaturas' }}
+    </p>
   </div>
 </template>
 
 <style scoped>
 .mapa-wrap { position: relative; height: 100%; }
 .mapa { height: 100%; }
-.controles, .legenda {
+.controles, .legenda, .aviso-hora {
   position: absolute; z-index: 500; background: var(--superficie); border-radius: 6px;
   padding: 8px 10px; box-shadow: 0 1px 4px rgb(0 0 0 / 0.25); font-size: 13px;
 }
 .controles { top: 10px; right: 10px; display: flex; gap: 12px; align-items: center; }
 .legenda { bottom: 20px; right: 10px; display: grid; gap: 4px; }
 .legenda i { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; border-radius: 2px; }
-.legenda i.afetado { border: 2px solid #d00000; background: transparent; }
+.legenda i.mudou { border: 2px solid #d00000; background: transparent; }
+.legenda i.destaque { border: 2px solid #000; background: #888; }
+.aviso-hora { top: 10px; left: 56px; margin: 0; }
 </style>

@@ -1,0 +1,7 @@
+# GeoPandas >= 1.0 por causa do union_all()
+geopandas>=1.0,<2
+pandas>=2.0
+numpy>=1.24
+shapely>=2.0
+fastapi>=0.110
+uvicorn>=0.29
