@@ -78,13 +78,17 @@ A apresentação deve cobrir os **9 critérios de avaliação**, um a um.
 
 ## Checklist do edital
 
-- [ ] README com nome da equipe, integrantes e descrição; `rimsa` como colaborador
-- [ ] Mapa: área, hexágonos, classificação, ocorrências, viaturas, área de cada viatura, mudança após empenho
-- [ ] Cenário 1 (todas disponíveis), cenário 2 (uma empenhada), cenário 3 (várias empenhadas)
-- [ ] Cartões-Programa: um por viatura disponível, 24 faixas, regras das 3 classes
-- [ ] Explicação do algoritmo e dos critérios
-- [ ] Documentação: solução, arquitetura, tecnologias, metodologia, execução, limitações, evolução
-- [ ] Somente tecnologias open source
+- [x] README com nome da equipe, integrantes e descrição; `rimsa` como colaborador
+- [ ] Repositório **privado** (o edital pede privado; hoje está público)
+- [ ] Inscrição de todos na ação de extensão (SIGAA)
+- [x] Mapa: área, hexágonos, classificação, ocorrências, viaturas, área de cada viatura, mudança após empenho
+- [x] Cenário 1 (todas disponíveis), cenário 2 (uma empenhada), cenário 3 (várias empenhadas)
+- [x] Cobertura territorial e impacto do empenho na cobertura
+- [x] Cartões-Programa: um por viatura disponível, 24 faixas, regras das 3 classes (verificadas automaticamente)
+- [x] Tipos de viatura considerados na distribuição
+- [x] Explicação do algoritmo e dos critérios (botão "Como funciona" e [solucao.md](solucao.md))
+- [x] Documentação: solução, arquitetura, tecnologias, metodologia, critérios, execução, limitações, evolução ([solucao.md](solucao.md))
+- [x] Somente tecnologias open source
 
 ## Cronograma
 

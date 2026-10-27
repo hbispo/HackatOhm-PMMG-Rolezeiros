@@ -113,6 +113,7 @@ class Estado:
     def _aplicar(self, acao, ids, funcao):
         """Roda uma mudança na frota e registra o que mudou no mapa."""
         antes = dict(zip(self.hexagonos["hex_id"], self.hexagonos["viatura"]))
+        cobertura_antes = motor.medir_cobertura(self.hexagonos, self.viaturas)
         self.hexagonos = funcao()
         self.cartoes = motor.gerar_cartoes(self.hexagonos, self.viaturas, FAIXAS)
         depois = dict(zip(self.hexagonos["hex_id"], self.hexagonos["viatura"]))
@@ -125,6 +126,7 @@ class Estado:
             "hex_descobertos": descobertos,
             "pct_pontos_descobertos": round(100 * float(pontos[descobertos].sum()) / float(pontos.sum()), 1),
             "hex_mudaram": [int(h) for h in depois if depois[h] != antes.get(h)],
+            "cobertura_antes": cobertura_antes,
         }
 
     def empenhar(self, ids):
@@ -168,6 +170,7 @@ class Estado:
             "atribuicoes": self.atribuicoes(),
             "cartoes": self.cartoes,
             "carga": self.carga(),
+            "cobertura": motor.medir_cobertura(self.hexagonos, self.viaturas),
             "problemas": motor.verificar_cartoes(self.cartoes, self.viaturas),
             "mudanca": self.mudanca,
         }

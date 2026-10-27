@@ -76,12 +76,16 @@ export interface Carga {
   dist_max_km: number
 }
 
+// % dos hexágonos e dos pontos a até 1, 2 e 3 km do hexágono-base de uma viatura.
+export type Cobertura = Record<'1km' | '2km' | '3km', { pct_hexagonos: number; pct_pontos: number }>
+
 export interface Mudanca {
   acao: 'empenhar' | 'liberar'
   viaturas: string[]
   hex_descobertos: number[]
   pct_pontos_descobertos: number
   hex_mudaram: number[]
+  cobertura_antes: Cobertura
 }
 
 export interface Estado {
@@ -90,6 +94,7 @@ export interface Estado {
   atribuicoes: Record<string, number[]>
   cartoes: Record<string, Cartao>
   carga: Carga[]
+  cobertura: Cobertura
   problemas: string[]
   mudanca: Mudanca | null
 }

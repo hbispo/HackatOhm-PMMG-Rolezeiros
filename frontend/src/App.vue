@@ -4,6 +4,7 @@ import { usePlano } from './stores/plano'
 import MapView from './components/MapView.vue'
 import ViaturasPanel from './components/ViaturasPanel.vue'
 import CartoesPrograma from './components/CartoesPrograma.vue'
+import ComoFunciona from './components/ComoFunciona.vue'
 
 const plano = usePlano()
 onMounted(plano.carregar)
@@ -12,6 +13,7 @@ onMounted(plano.carregar)
 <template>
   <header class="topo">
     <h1>Policiamento Preventivo <span>· 39ª CIA PM</span></h1>
+    <ComoFunciona />
   </header>
   <p v-if="plano.erro" class="erro">{{ plano.erro }}</p>
   <main class="layout">

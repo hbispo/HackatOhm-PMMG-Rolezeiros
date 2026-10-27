@@ -71,23 +71,32 @@ Todas as rotas abaixo devolvem o mesmo objeto **Estado**:
   "atribuicoes": { "VTR-01": [12, 13, 40] },
   "cartoes": { "VTR-01": { "...": "Cartão, ver abaixo" } },
   "carga": [{ "viatura": "VTR-01", "hexagonos": 244, "pontos": 1148.0, "pct_pontos": 23.7, "dist_max_km": 2.44 }],
+  "cobertura": {
+    "1km": { "pct_hexagonos": 42.0, "pct_pontos": 64.5 },
+    "2km": { "pct_hexagonos": 92.4, "pct_pontos": 99.5 },
+    "3km": { "pct_hexagonos": 99.7, "pct_pontos": 100.0 }
+  },
   "problemas": [],
   "mudanca": {
     "acao": "empenhar",
     "viaturas": ["VTR-02"],
     "hex_descobertos": [500, 501],
     "pct_pontos_descobertos": 26.7,
-    "hex_mudaram": [500, 501, 620]
+    "hex_mudaram": [500, 501, 620],
+    "cobertura_antes": { "1km": { "pct_hexagonos": 50.5, "pct_pontos": 81.8 }, "...": "..." }
   }
 }
 ```
 
 - `atribuicoes` e `cartoes` só têm viaturas disponíveis. `hex_base` é `null` nas empenhadas.
 - `carga`: hexágonos, pontos e alcance (distância do hexágono-base ao hexágono mais longe) de cada viatura.
+- `cobertura`: % dos hexágonos e dos pontos a até 1, 2 e 3 km do hexágono-base de alguma viatura
+  disponível (`medir_cobertura()`).
 - `problemas`: saída de `verificar_cartoes()`. Lista vazia quer dizer que as regras do edital foram cumpridas.
 - `mudanca`: o que a última ação mudou. É `null` no cenário 1.
   - `hex_descobertos`: área que era das viaturas empenhadas (vazia ao liberar).
   - `hex_mudaram`: hexágonos que trocaram de viatura (descobertos + ajustes nas vizinhas).
+  - `cobertura_antes`: cobertura antes da ação, para comparar com `cobertura`.
 
 ### `GET /estado`
 Estado atual.
@@ -151,8 +160,3 @@ Regras garantidas pelo motor (e checadas em `problemas`):
   incidência, em volta dos destaques da Classe 1.
 - O mesmo hexágono de ponto-base nunca é escolhido em seleções seguidas, e o dia é circular.
 - Com `LIMITAR_A_AREA_DA_VIATURA = True`, a patrulha fica dentro da área da própria viatura.
-
-## Ainda não existe
-
-- Métrica de cobertura territorial (% de hexágonos e de pontos a até 1, 2 e 3 km de uma viatura).
-  Está na lista de pendências do `HackatOhm.py`.

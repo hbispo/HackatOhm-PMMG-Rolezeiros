@@ -15,39 +15,22 @@
 #   - Cartão-Programa de cada viatura disponível (classes 1, 2 e 3, alternância
 #     das quadrículas, plano B da classe 3), com verificação das regras,
 #     comparação entre cenários e saída em JSON (cartoes_cenarioN.json)
+#   - a classificação (nivel) orienta a distribuição pelo FATOR_NIVEL
+#   - o tipo da viatura define a fatia de carga (CAPACIDADE_TIPO)
+#   - métrica de cobertura territorial (% de hexágonos e de pontos a até 1, 2
+#     e 3 km de um hexágono-base), impressa nos 3 cenários
+#   - API (api.py), mapa web (frontend/) e documentação (docs/solucao.md)
 #   Parâmetros ajustáveis (nas constantes, logo abaixo dos imports):
 #   - PESO_COBERTURA (0.3), TOLERANCIA_CARGA (0.25), CORTES_PERCENTIL
+#   - FATOR_NIVEL, CAPACIDADE_TIPO, ITERACOES_REDISTRIBUICAO
 #   - frota de teste: QTD_ATENDIMENTO (3) e QTD_PREVENTIVAS (2)
 #   - cartão-programa: LIMITAR_A_AREA_DA_VIATURA, QTD_QUADRICULAS_CLASSE3,
 #     CANDIDATAS_POR_FAIXA
 #
-# O QUE FALTA (em ordem)
-#   1. Corrigir as lacunas achadas na revisão contra o enunciado
-#      - a classificação dos hexágonos (nivel) ainda não influencia a
-#        distribuição, que usa a pontuação bruta (o enunciado pede explicar
-#        como a classificação influencia a distribuição)
-#      - o tipo da viatura (atendimento/preventiva) ainda não faz nada
-#      - falta uma métrica de cobertura territorial (% de hexágonos e de pontos
-#        a até 1, 2 e 3 km de uma viatura) pros cenários 1 e 2
-#      - ocorrências a até ~60 m da borda do polígono: 7 são descartadas e ~45
-#        são contadas. Sugestão: gerar a malha sobre a área ampliada em 100 m
-#   2. API (FastAPI) pro front-end
-#      - endpoints: malha, ocorrências, viaturas, cartões, indisponibilizar e
-#        disponibilizar uma viatura
-#      - converter os dados de volta pra lat/lon (to_crs 4326), porque o
-#        Leaflet não usa metros
-#   3. Mapa web (Leaflet)
-#      - área, malha, classificação, ocorrências, viaturas, área de cada
-#        viatura e a mudança depois que uma viatura sai
-#   4. Documentação e entrega
-#      - README com critérios, arquitetura e limitações
-#      - requirements.txt
-#   5. Pendências administrativas (instruções.txt)
-#      - inscrição na ação de extensão
-#      - repositório PRIVADO no GitHub com README (equipe, integrantes e
-#        descrição da solução)
-#      - adicionar o coordenador como membro do repositório (usuário: rimsa)
-#      - entrar no grupo do WhatsApp
+# O QUE FALTA
+#   - ocorrências a até ~60 m da borda do polígono: 7 são descartadas e ~45
+#     são contadas. Sugestão: gerar a malha sobre a área ampliada em 100 m
+#   - limitações e evolução em docs/solucao.md
 #
 # DECISÕES PARA CONFIRMAR COM O COORDENADOR (perguntar no grupo)
 #   - frota real do cenário (quantidade e tipos). Hoje o "tipo" da viatura
@@ -130,6 +113,27 @@ SEMENTE = 42          # pra o resultado ser sempre o mesmo
 # quanto a carga de uma viatura pode fugir da média (0.25 = 25% a mais ou a menos).
 # Quanto menor, mais parecida fica a carga entre as viaturas. None desliga o equilíbrio
 TOLERANCIA_CARGA = 0.25
+
+# como a classificação orienta a distribuição: a pontuação de cada hexágono é
+# multiplicada pelo fator do seu nível antes de dividir o território. Assim os
+# hexágonos "muito alta" pesam mais que a soma bruta das ocorrências e puxam as
+# viaturas pra perto (concentração em hot spots)
+FATOR_NIVEL = {1: 1.0, 2: 1.25, 3: 1.5, 4: 2.0}
+
+# função de cada tipo de viatura: a de atendimento pode ser empenhada a qualquer
+# momento, então recebe uma fatia menor da carga preventiva (área mais compacta,
+# perto de onde já está a demanda). A preventiva carrega a fatia cheia
+CAPACIDADE_TIPO = {"atendimento": 0.75, "preventiva": 1.0}
+
+# na redistribuição (viatura empenhada ou liberada), quantas iterações do k-means
+# os centros podem andar a partir de onde estavam. Testado: limitar a 0-3 muda
+# menos hexágonos de viatura, mas piora a cobertura (com 3 viaturas, 1 km cai de
+# ~50% para ~39% dos pontos e o alcance chega a 5 km). Ficou o valor cheio
+ITERACOES_REDISTRIBUICAO = 100
+
+# cobertura territorial: um hexágono está coberto a X km se o seu centro fica a
+# até X km do hexágono-base de alguma viatura disponível
+RAIOS_COBERTURA_KM = (1, 2, 3)
 
 # cartão-programa (regras do enunciado)
 PONTO_BASE_MIN = 20       # minutos parado na quadrícula em destaque
@@ -408,16 +412,19 @@ def _distancias2(xy, centros):
     return ((xy[:, None, :] - np.asarray(centros)[None, :, :]) ** 2).sum(axis=2)
 
 
-def _atribuir(d2, pesos):
+def _atribuir(d2, pesos, capacidades=None):
     """Decide qual viatura fica com cada hexágono. Por padrão é a mais perto,
     mas se alguma ficar sobrecarregada eu 'encolho' a área dela e aumento a das
-    que estão com pouca carga, até ficar dentro da tolerância."""
+    que estão com pouca carga, até ficar dentro da tolerância.
+    `capacidades` = fatia de carga de cada viatura (pelo tipo); None = todas iguais."""
     k = d2.shape[1]
     rotulos = d2.argmin(axis=1)
     if TOLERANCIA_CARGA is None or k == 1:
         return rotulos
 
-    alvo = pesos.sum() / k
+    if capacidades is None:
+        capacidades = np.ones(k)
+    alvo = pesos.sum() * capacidades / capacidades.sum()
     escala = d2.min(axis=1).mean()
     ajuste = np.zeros(k)
     for _ in range(300):
@@ -430,14 +437,14 @@ def _atribuir(d2, pesos):
     return rotulos
 
 
-def _kmeans_ponderado(xy, pesos, centros, iteracoes=100):
+def _kmeans_ponderado(xy, pesos, centros, iteracoes=100, capacidades=None):
     """K-means onde cada hexágono conta com o seu peso. Parte dos centros que
     foram passados e devolve os centros finais, os rótulos e o custo."""
     centros = np.array(centros, dtype=float)
     k = len(centros)
 
     for _ in range(iteracoes):
-        rotulos = _atribuir(_distancias2(xy, centros), pesos)
+        rotulos = _atribuir(_distancias2(xy, centros), pesos, capacidades)
         novos = centros.copy()
         for j in range(k):
             membros = rotulos == j
@@ -448,7 +455,7 @@ def _kmeans_ponderado(xy, pesos, centros, iteracoes=100):
         centros = novos
 
     d2 = _distancias2(xy, centros)
-    rotulos = _atribuir(d2, pesos)
+    rotulos = _atribuir(d2, pesos, capacidades)
     custo = (pesos * d2[np.arange(len(xy)), rotulos]).sum()
     return centros, rotulos, custo
 
@@ -469,9 +476,10 @@ def _ponto_mais_descoberto(xy, pesos, centros):
 
 def distribuir_viaturas(hexagonos, viaturas, tentativas=10):
     """Divide a malha em uma área pra cada viatura disponível.
-    Cada hexágono pesa: (1 - PESO_COBERTURA) * sua parte das ocorrências
-    + PESO_COBERTURA * uma parte igual da área. Assim as áreas de maior prioridade
-    ficam menores (mais atenção), mas nenhum canto do mapa fica sem viatura."""
+    Cada hexágono pesa: (1 - PESO_COBERTURA) * sua parte da pontuação ajustada pelo
+    nível (FATOR_NIVEL) + PESO_COBERTURA * uma parte igual da área. Assim as áreas
+    de maior prioridade ficam menores (mais atenção), mas nenhum canto do mapa fica
+    sem viatura. A carga de cada viatura segue a capacidade do tipo (CAPACIDADE_TIPO)."""
     ativas = [v for v in viaturas if v.disponivel]
     k = len(ativas)
     if k == 0:
@@ -479,14 +487,17 @@ def distribuir_viaturas(hexagonos, viaturas, tentativas=10):
 
     xy = hexagonos[["cx", "cy"]].to_numpy(float)
     score = hexagonos["score_total"].to_numpy(float)
-    pesos = (1 - PESO_COBERTURA) * score / score.sum() + PESO_COBERTURA / len(score)
+    prioridade = score * hexagonos["nivel"].map(FATOR_NIVEL).to_numpy(float)
+    pesos = (1 - PESO_COBERTURA) * prioridade / prioridade.sum() + PESO_COBERTURA / len(score)
+    capacidades = np.array([CAPACIDADE_TIPO[v.tipo] for v in ativas], dtype=float)
 
     conhecidos = [v.centro for v in ativas if v.centro is not None]
     if not conhecidos:
         # primeira distribuição: tenta vários pontos de partida e fica com o melhor
         rng = np.random.default_rng(SEMENTE)
         resultados = [
-            _kmeans_ponderado(xy, pesos, _centros_sorteados(xy, pesos, k, rng))
+            _kmeans_ponderado(xy, pesos, _centros_sorteados(xy, pesos, k, rng),
+                              capacidades=capacidades)
             for _ in range(tentativas)
         ]
         centros, rotulos, _ = min(resultados, key=lambda r: r[2])
@@ -502,7 +513,8 @@ def distribuir_viaturas(hexagonos, viaturas, tentativas=10):
                 partida.append(novo)
             else:
                 partida.append(v.centro)
-        centros, rotulos, _ = _kmeans_ponderado(xy, pesos, partida)
+        centros, rotulos, _ = _kmeans_ponderado(
+            xy, pesos, partida, iteracoes=ITERACOES_REDISTRIBUICAO, capacidades=capacidades)
 
     hexagonos = hexagonos.copy()
     hexagonos["viatura"] = None
@@ -533,6 +545,34 @@ def distribuir_viaturas(hexagonos, viaturas, tentativas=10):
     print("Distribuição das viaturas:")
     print(pd.DataFrame(linhas).to_string(index=False))
     return hexagonos
+
+
+def medir_cobertura(hexagonos, viaturas):
+    """Cobertura territorial: % dos hexágonos e % dos pontos a até 1, 2 e 3 km do
+    hexágono-base de alguma viatura disponível."""
+    bases = [v.hex_base for v in viaturas if v.disponivel and v.hex_base is not None]
+    xy = hexagonos[["cx", "cy"]].to_numpy(float)
+    score = hexagonos["score_total"].to_numpy(float)
+    if not bases:
+        dist = np.full(len(xy), np.inf)
+    else:
+        xy_bases = hexagonos.set_index("hex_id").loc[bases, ["cx", "cy"]].to_numpy(float)
+        dist = np.sqrt(_distancias2(xy, xy_bases).min(axis=1))
+
+    cobertura = {}
+    for raio in RAIOS_COBERTURA_KM:
+        perto = dist <= raio * 1000
+        cobertura[f"{raio}km"] = {
+            "pct_hexagonos": round(float(100 * perto.mean()), 1),
+            "pct_pontos": round(float(100 * score[perto].sum() / score.sum()), 1),
+        }
+    return cobertura
+
+
+def imprimir_cobertura(cobertura):
+    partes = [f"{r}: {c['pct_hexagonos']}% dos hexágonos, {c['pct_pontos']}% dos pontos"
+              for r, c in cobertura.items()]
+    print("Cobertura territorial (até X km de um hexágono-base):", " | ".join(partes))
 
 
 def indisponibilizar_e_redistribuir(hexagonos, viaturas, ids):
@@ -870,12 +910,15 @@ if __name__ == "__main__":
 
     print("\n=== Cenário 1: todas as viaturas disponíveis ===")
     hexagonos = distribuir_viaturas(hexagonos, viaturas)
+    imprimir_cobertura(medir_cobertura(hexagonos, viaturas))
     cartoes1 = montar_cartoes_do_cenario("cenario1", hexagonos, viaturas, faixas, imprimir=True)
 
     print("\n=== Cenário 2: uma viatura indisponível ===")
     hexagonos = indisponibilizar_e_redistribuir(hexagonos, viaturas, ["VTR-02"])
+    imprimir_cobertura(medir_cobertura(hexagonos, viaturas))
     cartoes2 = montar_cartoes_do_cenario("cenario2", hexagonos, viaturas, faixas, anteriores=cartoes1)
 
     print("\n=== Cenário 3: duas viaturas indisponíveis ===")
     hexagonos = indisponibilizar_e_redistribuir(hexagonos, viaturas, ["VTR-01"])
+    imprimir_cobertura(medir_cobertura(hexagonos, viaturas))
     cartoes3 = montar_cartoes_do_cenario("cenario3", hexagonos, viaturas, faixas, anteriores=cartoes2)

@@ -8,6 +8,16 @@ const plano = usePlano()
 const mudanca = computed(() => plano.estado?.mudanca)
 const cargaPorViatura = computed(() => new Map((plano.estado?.carga ?? []).map((c) => [c.viatura, c])))
 const problemas = computed(() => plano.estado?.problemas ?? [])
+
+const RAIOS = ['1km', '2km', '3km'] as const
+const cobertura = computed(() => plano.estado?.cobertura)
+const coberturaAntes = computed(() => mudanca.value?.cobertura_antes)
+
+function delta(atual: number, antes?: number): string {
+  if (antes === undefined) return ''
+  const d = Math.round((atual - antes) * 10) / 10
+  return d === 0 ? '=' : `${d > 0 ? '+' : ''}${d}`
+}
 </script>
 
 <template>
@@ -18,6 +28,31 @@ const problemas = computed(() => plano.estado?.problemas ?? [])
       <button :disabled="plano.ocupado" @click="plano.aplicarCenario(2)">2 · Uma empenhada</button>
       <button :disabled="plano.ocupado" @click="plano.aplicarCenario(3)">3 · Duas</button>
     </div>
+
+    <h2>Cobertura territorial</h2>
+    <table v-if="cobertura" class="cobertura">
+      <thead>
+        <tr><th>Até</th><th>% hexágonos</th><th>% pontos</th></tr>
+      </thead>
+      <tbody>
+        <tr v-for="r in RAIOS" :key="r">
+          <td>{{ r.replace('km', ' km') }}</td>
+          <td>
+            {{ cobertura[r].pct_hexagonos }}%
+            <em :class="{ ruim: cobertura[r].pct_hexagonos < (coberturaAntes?.[r].pct_hexagonos ?? 0) }">
+              {{ delta(cobertura[r].pct_hexagonos, coberturaAntes?.[r].pct_hexagonos) }}
+            </em>
+          </td>
+          <td>
+            {{ cobertura[r].pct_pontos }}%
+            <em :class="{ ruim: cobertura[r].pct_pontos < (coberturaAntes?.[r].pct_pontos ?? 0) }">
+              {{ delta(cobertura[r].pct_pontos, coberturaAntes?.[r].pct_pontos) }}
+            </em>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="nota-cobertura">Distância do centro do hexágono ao hexágono-base da viatura mais próxima.</p>
 
     <template v-if="mudanca">
       <h2>Última mudança</h2>
@@ -81,6 +116,12 @@ const problemas = computed(() => plano.estado?.problemas ?? [])
 h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dourado-escuro); margin: 18px 0 8px; }
 h2 small { text-transform: none; letter-spacing: 0; color: var(--texto-suave); font-weight: normal; }
 .cenarios { display: flex; gap: 6px; flex-wrap: wrap; }
+.cobertura { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cobertura th { text-align: left; font-size: 11px; color: var(--texto-suave); font-weight: 600; padding: 2px 4px; }
+.cobertura td { padding: 3px 4px; border-top: 1px solid var(--borda); }
+.cobertura em { font-style: normal; font-size: 11px; color: #2a7a2a; }
+.cobertura em.ruim { color: #d00000; }
+.nota-cobertura { font-size: 11px; color: var(--texto-suave); margin: 4px 0 0; }
 .mudanca { background: var(--fundo); border-left: 3px solid #d00000; border-radius: 6px; padding: 8px 10px; font-size: 13px; }
 .mudanca p { margin: 0 0 6px; }
 .mudanca .nota { margin: 6px 0 0; color: var(--texto-suave); font-size: 12px; }
